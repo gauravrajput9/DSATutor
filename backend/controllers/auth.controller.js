@@ -62,10 +62,12 @@ export const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    console.log(token);
+
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // true in production (HTTPS)
-      sameSite: "strict",
+      secure: false,
+      sameSite: "lax",
     });
 
     res.json({
@@ -76,4 +78,34 @@ export const login = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+export const getMe = (req, res) => {
+  try {
+    const token = req.cookies.token;
+
+    if (!token) return res.status(401).json({ message: "Not logged in" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    res.json({ userId: decoded.id });
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
+
+
+
+//? logout
+export const logout = (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict"
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully"
+  });
 };
