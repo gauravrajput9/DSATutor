@@ -22,6 +22,18 @@ export const signup = async (req, res) => {
       password: hashedPassword,
     });
 
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+    });
+
     res.status(201).json({
       message: "User created",
       user: {
@@ -87,8 +99,30 @@ export const getMe = (req, res) => {
     if (!token) return res.status(401).json({ message: "Not logged in" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    User.findById(decoded.id)
+      .select("name email createdAt chatSessions")
+      .then((user) => {
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
 
-    res.json({ userId: decoded.id });
+        return res.json({
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            createdAt: user.createdAt,
+            totalChats: user.chatSessions?.length || 0,
+            totalMessages: (user.chatSessions || []).reduce(
+              (count, session) => count + (session.messages?.length || 0),
+              0
+            ),
+          },
+        });
+      })
+      .catch(() => {
+        res.status(500).json({ message: "Could not load profile." });
+      });
   } catch {
     res.status(401).json({ message: "Invalid token" });
   }
